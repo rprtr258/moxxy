@@ -15,7 +15,7 @@ import (
 )
 
 func checkKnownKeys(m map[string]any, keys ...string) error {
-	keyset := map[string]struct{}{}
+	keyset := make(map[string]struct{}, len(keys))
 	for _, key := range keys {
 		keyset[key] = struct{}{}
 	}
@@ -262,11 +262,7 @@ func parseOpts(m map[string]any) (string, error) {
 	return sb.String(), nil
 }
 
-func run(args []string) error {
-	if len(args) != 2 {
-		return errors.New("invalid number of arguments, expected 1")
-	}
-
+var vm = func() *jsonnet.VM {
 	vm := jsonnet.MakeVM()
 	vm.NativeFunction(&jsonnet.NativeFunction{
 		Name:   "exec",
@@ -279,6 +275,14 @@ func run(args []string) error {
 			return fmt.Sprintf("$(%s)", cmd), nil
 		},
 	})
+	return vm
+}()
+
+func run(args []string) error {
+	if len(args) != 2 {
+		return errors.New("invalid number of arguments, expected 1")
+	}
+
 	s, err := vm.EvaluateFile(args[1])
 	if err != nil {
 		return errors.Wrap(err, "evaluate file as jsonnet")
@@ -311,6 +315,7 @@ func run(args []string) error {
 			return errors.Wrap(err, "parse to address")
 		}
 
+		// TODO: finish them
 		cmd := &exec.Cmd{
 			Path: "/bin/sh",
 			Args: []string{"sh", "-c", "socat" + opts + " " + from + " " + to},
