@@ -1,10 +1,11 @@
 module github.com/rprtr258/moxi
 
-go 1.26.0
+go 1.27.0
 
 require (
 	github.com/google/go-jsonnet v0.22.0
 	github.com/pkg/errors v0.9.1
+	github.com/rprtr258/fun v0.2.1
 	github.com/rs/zerolog v1.35.1
 )
 

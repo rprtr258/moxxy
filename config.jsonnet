@@ -273,6 +273,13 @@ local socks_proxy = {
     socksport: 5678,
   }
 };
+// In-process HTTP proxy: plain HTTP in on :1337,
+// reconstructed + forwarded over HTTPS to the gateway,
+// headers copied, req/resp dumped.
+local http_proxy = {
+  from: { kind: "http-listen", port: 2448 },
+  to:   { kind: "http-connect", host: "reqres.in", port: 443, tls: true },
+};
 
 [
   // shell,
@@ -285,4 +292,5 @@ local socks_proxy = {
   // file.upload.uploader,
   // file.upload.remote
   socks_proxy,
+  http_proxy,
 ]
