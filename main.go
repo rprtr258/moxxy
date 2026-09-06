@@ -148,7 +148,7 @@ func parseBiAddress(m map[string]any) (string, error) {
 		}
 		// TODO: catch zero only if provided
 		// if echo != 0 {
-		sb.WriteString(fmt.Sprintf(",echo=%d", int(echo)))
+		fmt.Fprintf(&sb, ",echo=%d", int(echo))
 		// }
 		return sb.String(), nil
 	case "tcp-listen", "TCP-LISTEN", "TCP-L":
@@ -249,7 +249,7 @@ func parseOpts(m map[string]any) (string, error) {
 	var sb strings.Builder
 	if inactivityTimeoutSeconds > 0 {
 		sb.WriteString(" -T")
-		sb.WriteString(fmt.Sprintf("%d,", int(inactivityTimeoutSeconds)))
+		fmt.Fprintf(&sb, "%d,", int(inactivityTimeoutSeconds))
 	}
 	if leftToRight {
 		sb.WriteString(" -u")
