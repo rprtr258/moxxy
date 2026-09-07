@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 	"time"
 
@@ -17,6 +19,8 @@ import (
 	"github.com/rprtr258/fun"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	runn "github.com/rprtr258/moxxy/internal/run"
 )
 
 func reifyWrap(message string) func(error) error {
@@ -308,7 +312,7 @@ var vm = func() *jsonnet.VM {
 	return vm
 }()
 
-func run(filename string) error {
+func run(ctx context.Context, filename string) error {
 	s, err := vm.EvaluateFile(filename)
 	if err != nil {
 		return errors.Wrap(err, "evaluate file as jsonnet")
@@ -326,6 +330,7 @@ func run(filename string) error {
 
 	cmds := []*exec.Cmd{}
 	servers := []*http.Server{}
+	lc := runn.New()
 	for i, config := range configs {
 		fromKind, _ := config.From["kind"].(string)
 		if fromKind == "http-listen" {
@@ -409,6 +414,7 @@ func run(filename string) error {
 				}
 			}(i, srv)
 			servers = append(servers, srv)
+			lc.AddE(srv.Close)
 			continue
 		}
 
@@ -426,31 +432,21 @@ func run(filename string) error {
 			return err
 		}
 
-		// TODO: finish them
-		cmd := &exec.Cmd{
-			Path:   "/bin/sh",
-			Args:   []string{"sh", "-c", "socat" + cmdopts},
-			Stderr: os.Stderr,
-		}
+		cmd := exec.CommandContext(ctx, "/bin/sh", "sh", "-c", "socat"+cmdopts)
+		cmd.Stderr = os.Stderr
 		fmt.Println(cmd)
 		if err := cmd.Start(); err != nil {
 			log.Error().Err(err).Msgf("failed to start socat # %d", i)
 			continue
 		}
 		cmds = append(cmds, cmd)
-	}
-	for i, cmd := range cmds {
-		if err := cmd.Wait(); err != nil {
-			log.Fatal().Err(err).Msgf("socat # %d failed", i)
-		}
+		lc.AddE(cmd.Wait)
 	}
 
-	// block while in-process http servers are running
-	if len(servers) > 0 {
-		select {} // TODO: context
-	}
+	// block while running
+	<-ctx.Done()
 
-	return nil
+	return lc.Close(ctx)
 }
 
 func main() {
@@ -460,7 +456,10 @@ func main() {
 		log.Fatal().Msg("invalid number of arguments, expected 1")
 	}
 
-	if err := run(os.Args[1]); err != nil {
-		log.Fatal().Msg(err.Error())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	if err := run(ctx, os.Args[1]); err != nil {
+		log.Fatal().Err(err).Send()
 	}
 }

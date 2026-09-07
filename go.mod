@@ -1,4 +1,4 @@
-module github.com/rprtr258/moxi
+module github.com/rprtr258/moxxy
 
 go 1.27.0
 
